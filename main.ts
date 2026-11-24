@@ -18,6 +18,8 @@ import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, statSyn
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boardIssue, buildRadar, dataScript, parseSnapshot } from './lib/model.ts';
+import { analyseSensitivity, summarizeSensitivity } from './lib/sensitivity.ts';
+import { summarizeValidation, validateOutput } from './lib/validate.ts';
 import { buildDossier } from './vendor/makefun-board.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -88,6 +90,18 @@ writeFileSync(
   join(out, 'dossier.json'),
   buildDossier(out, { text_max_bytes: TEXT_MAX_BYTES, screenshots: SCREENSHOT_CAPS, dashboard: { max_files: 400, max_bytes: 4_194_304 } }),
 );
+
+process.stdout.write(
+  `token radar: sensitivity: ${summarizeSensitivity(analyseSensitivity(snapshot, board))}\n`,
+);
+const validation = validateOutput(out, board.length);
+process.stdout.write(`token radar: validation: ${summarizeValidation(validation)}\n`);
+if (!validation.ok) {
+  for (const problem of validation.problems) {
+    process.stderr.write(`token radar: validation: ${problem}\n`);
+  }
+  process.exit(1);
+}
 
 process.stdout.write(
   `token radar: ${snapshot.protocols.length} protocols, ${snapshot.watchlist.length} on the watchlist, ${board.length} rows scored (${radar.early_size} early, ${radar.live_size} live set aside)\n` +
