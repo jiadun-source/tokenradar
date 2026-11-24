@@ -182,6 +182,45 @@
     });
   }
 
+  // Take the board the way the user currently sees it — the same search,
+  // category filter and sort the table shows — out as a plain CSV file the
+  // user can open in a spreadsheet. The file is built from data.js in
+  // memory and downloaded straight from the browser; nothing is sent
+  // anywhere, and the page stays offline.
+  function csvCell(value) {
+    if (value === null || value === undefined) return '';
+    var s = String(value);
+    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+  function csvFileName() {
+    return 'token-radar-' + (DATA.as_of || 'board') + '-visible-rows.csv';
+  }
+  function visibleRowsCsv() {
+    var head = ['rank', 'protocol', 'slug', 'category', 'chains', 'tvl_usd', 'change_7d_pct', 'age_days', 'implied_value_usd', 'category_multiple'];
+    var lines = [head.join(',')];
+    sortedRows(rows()).forEach(function (r) {
+      lines.push([
+        r.rank, r.name, r.slug, r.category || '', (r.chains || []).join(';'),
+        r.tvl_usd, r.change_7d === null ? '' : r.change_7d,
+        r.age_days === null ? '' : r.age_days,
+        r.implied_value_usd, r.category_multiple
+      ].map(csvCell).join(','));
+    });
+    return lines.join('\r\n') + '\r\n';
+  }
+  function downloadVisibleCsv() {
+    var blob = new Blob([visibleRowsCsv()], { type: 'text/csv;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = csvFileName();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
   function header() {
     return el('header', { class: 'top' },
       el('div', { class: 'brand' }, el('span', { class: 'mark' }), el('span', { class: 'brand-name', text: 'Token Radar' })),
@@ -223,7 +262,8 @@
       el('div', { class: 'field' }, el('label', { for: 'q', text: 'Search' }), search),
       el('div', { class: 'field' }, el('label', { for: 'category', text: 'Category' }), select),
       el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Token status' }), el('div', { class: 'tabs' }, pre, live)),
-      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' rows shown' : DATA.live.length + ' live-token protocols' })
+      el('span', { class: 'count', text: state.tab === 'pre-token' ? rows().length + ' rows shown' : DATA.live.length + ' live-token protocols' }),
+      el('div', { class: 'field' }, el('span', { class: 'sub', text: 'Export' }), el('button', { class: 'button', type: 'button', text: 'Save visible rows as CSV', onclick: function () { downloadVisibleCsv(); } }))
     );
   }
 
